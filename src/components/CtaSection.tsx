@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Phone, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const CtaSection = () => {
+  const navigate = useNavigate();
+  
   return (
     <section className="section-dark section-padding">
       <div className="container-tight px-4 text-center">
@@ -14,7 +17,12 @@ const CtaSection = () => {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-          <Button variant="hero" size="xl" className="w-full sm:w-auto">
+          <Button 
+            variant="hero" 
+            size="xl" 
+            className="w-full sm:w-auto"
+            onClick={() => navigate("/booking")}
+          >
             Book Your Cleaning
             <ArrowRight className="w-5 h-5 ml-2" />
           </Button>

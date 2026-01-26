@@ -1,9 +1,11 @@
 import { Phone, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -36,7 +38,7 @@ const Header = () => {
               <Phone className="w-4 h-4" />
               (123) 456-7890
             </a>
-            <Button variant="cta" size="default">
+            <Button variant="cta" size="default" onClick={() => navigate("/booking")}>
               Book Now
             </Button>
           </div>
@@ -69,7 +71,7 @@ const Header = () => {
                   <Phone className="w-4 h-4" />
                   (123) 456-7890
                 </a>
-                <Button variant="cta" size="lg" className="w-full mt-3">
+                <Button variant="cta" size="lg" className="w-full mt-3" onClick={() => navigate("/booking")}>
                   Book Now
                 </Button>
               </div>

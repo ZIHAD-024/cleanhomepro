@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Home, Sparkles, Building, Wrench, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const services = [
   {
+    id: "regular",
     icon: Home,
     title: "Standard Cleaning",
     description: "Regular maintenance cleaning for bedrooms, living areas, kitchen, and bathrooms.",
@@ -10,6 +12,7 @@ const services = [
     duration: "2-3 hours",
   },
   {
+    id: "deep",
     icon: Sparkles,
     title: "Deep Cleaning",
     description: "Thorough top-to-bottom cleaning including inside appliances, baseboards, and hard-to-reach areas.",
@@ -17,6 +20,7 @@ const services = [
     duration: "4-5 hours",
   },
   {
+    id: "move",
     icon: Building,
     title: "Move In/Out Cleaning",
     description: "Complete cleaning service for empty homes. Perfect for new tenants or before handover.",
@@ -24,6 +28,7 @@ const services = [
     duration: "5-7 hours",
   },
   {
+    id: "office",
     icon: Wrench,
     title: "Maintenance Services",
     description: "Minor home repairs and maintenance tasks handled by our trusted professionals.",
@@ -33,6 +38,12 @@ const services = [
 ];
 
 const ServicesSection = () => {
+  const navigate = useNavigate();
+  
+  const handleBookService = (serviceId: string) => {
+    navigate(`/booking?service=${serviceId}`);
+  };
+
   return (
     <section id="services" className="section-padding bg-background">
       <div className="container-tight px-4">
@@ -72,7 +83,12 @@ const ServicesSection = () => {
                     <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
                       {service.duration}
                     </span>
-                    <Button variant="ghost" size="sm" className="text-primary">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-primary"
+                      onClick={() => handleBookService(service.id)}
+                    >
                       Book Now
                       <ArrowRight className="w-4 h-4 ml-1" />
                     </Button>
