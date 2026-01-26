@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import heroImage from "@/assets/hero-home.jpg";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
   return (
     <section className="relative bg-background overflow-hidden">
       {/* Background Image with Overlay */}
@@ -44,10 +46,10 @@ const HeroSection = () => {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button variant="hero" size="xl">
+            <Button variant="hero" size="xl" onClick={() => navigate("/booking")}>
               Book a Cleaning
             </Button>
-            <Button variant="outline-light" size="xl">
+            <Button variant="outline-light" size="xl" onClick={() => document.getElementById("services")?.scrollIntoView({ behavior: "smooth" })}>
               View Services
             </Button>
           </div>
