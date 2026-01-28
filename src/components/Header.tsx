@@ -30,6 +30,12 @@ const Header = () => {
             <a href="#testimonials" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Reviews
             </a>
+            <button
+              onClick={() => navigate("/auth")}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Admin
+            </button>
           </nav>
 
           {/* CTA */}
@@ -66,6 +72,12 @@ const Header = () => {
               <a href="#testimonials" className="text-sm font-medium text-foreground py-2">
                 Reviews
               </a>
+              <button
+                onClick={() => navigate("/auth")}
+                className="text-sm font-medium text-foreground py-2 text-left"
+              >
+                Admin Login
+              </button>
               <div className="pt-3 border-t border-border mt-2">
                 <a href="tel:+1234567890" className="flex items-center gap-2 text-sm font-medium text-foreground py-2">
                   <Phone className="w-4 h-4" />
