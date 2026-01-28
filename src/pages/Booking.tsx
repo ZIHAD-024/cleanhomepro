@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,43 +11,38 @@ import { Check, Clock, ArrowLeft, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useToast } from "@/hooks/use-toast";
 
 interface Service {
   id: string;
   name: string;
-  description: string;
-  duration: string;
-  price: string;
+  description: string | null;
+  duration_minutes: number | null;
+  base_price: number | null;
 }
 
-const services: Service[] = [
+// Fallback services for when DB is empty
+const fallbackServices: Service[] = [
   {
     id: "regular",
     name: "Regular Cleaning",
     description: "Standard home cleaning for weekly or bi-weekly maintenance",
-    duration: "2-3 hours",
-    price: "From $89",
+    duration_minutes: 150,
+    base_price: 89,
   },
   {
     id: "deep",
     name: "Deep Cleaning",
     description: "Thorough cleaning including hard-to-reach areas and appliances",
-    duration: "4-5 hours",
-    price: "From $149",
+    duration_minutes: 270,
+    base_price: 149,
   },
   {
     id: "move",
     name: "Move-In/Out Cleaning",
     description: "Complete cleaning for moving transitions, top to bottom",
-    duration: "5-6 hours",
-    price: "From $199",
-  },
-  {
-    id: "office",
-    name: "Office Cleaning",
-    description: "Professional cleaning for commercial spaces and offices",
-    duration: "Varies",
-    price: "From $129",
+    duration_minutes: 330,
+    base_price: 199,
   },
 ];
 
@@ -67,7 +63,10 @@ const Booking = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedService = searchParams.get("service");
+  const { toast } = useToast();
 
+  const [services, setServices] = useState<Service[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
   const [selectedService, setSelectedService] = useState<string>(
     preselectedService || ""
   );
@@ -86,7 +85,48 @@ const Booking = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  const fetchServices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("services")
+        .select("id, name, description, duration_minutes, base_price")
+        .eq("is_active", true)
+        .order("base_price", { ascending: true });
+
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setServices(data);
+      } else {
+        setServices(fallbackServices);
+      }
+    } catch (error) {
+      console.error("Error fetching services:", error);
+      setServices(fallbackServices);
+    } finally {
+      setLoadingServices(false);
+    }
+  };
+
   const selectedServiceData = services.find((s) => s.id === selectedService);
+
+  const formatDuration = (minutes: number | null) => {
+    if (!minutes) return "Varies";
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins} min`;
+    if (mins === 0) return `${hours} hours`;
+    return `${hours}-${hours + 1} hours`;
+  };
+
+  const formatPrice = (price: number | null) => {
+    if (!price) return "Contact for quote";
+    return `From $${price}`;
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -128,22 +168,69 @@ const Booking = () => {
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // First, create or find the customer
+      const { data: customerData, error: customerError } = await supabase
+        .from("customers")
+        .insert({
+          full_name: formData.fullName.trim(),
+          phone: formData.phone.trim(),
+          email: formData.email.trim() || null,
+          address: formData.address.trim(),
+          source: "Website",
+        })
+        .select("id")
+        .single();
 
-    // Generate a booking ID
-    const bookingId = `BK${Date.now().toString().slice(-6)}`;
+      if (customerError) throw customerError;
 
-    // Navigate to confirmation with booking details
-    navigate("/booking/confirmation", {
-      state: {
-        bookingId,
-        service: selectedServiceData,
-        date: selectedDate,
-        time: selectedTime,
-        customer: formData,
-      },
-    });
+      // Convert time string to 24h format for DB
+      const timeMatch = selectedTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      let hours = parseInt(timeMatch?.[1] || "0");
+      const minutes = timeMatch?.[2] || "00";
+      const period = timeMatch?.[3]?.toUpperCase();
+      
+      if (period === "PM" && hours !== 12) hours += 12;
+      if (period === "AM" && hours === 12) hours = 0;
+      
+      const bookingTime = `${hours.toString().padStart(2, "0")}:${minutes}:00`;
+
+      // Create the booking
+      const { data: bookingData, error: bookingError } = await supabase
+        .from("bookings")
+        .insert({
+          customer_id: customerData.id,
+          service_id: selectedServiceData?.id || null,
+          booking_date: selectedDate?.toISOString().split("T")[0],
+          booking_time: bookingTime,
+          notes: formData.notes.trim() || null,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (bookingError) throw bookingError;
+
+      // Navigate to confirmation with booking details
+      navigate("/booking/confirmation", {
+        state: {
+          bookingId: bookingData.id.slice(0, 8).toUpperCase(),
+          service: selectedServiceData,
+          date: selectedDate,
+          time: selectedTime,
+          customer: formData,
+        },
+      });
+    } catch (error: any) {
+      console.error("Booking error:", error);
+      toast({
+        title: "Booking Failed",
+        description: "There was an error processing your booking. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isFormComplete =
@@ -272,10 +359,10 @@ const Booking = () => {
                       <div className="flex items-center gap-3 mt-3 text-sm">
                         <span className="flex items-center gap-1 text-muted-foreground">
                           <Clock className="w-3.5 h-3.5" />
-                          {service.duration}
+                          {formatDuration(service.duration_minutes)}
                         </span>
                         <span className="font-semibold text-foreground">
-                          {service.price}
+                          {formatPrice(service.base_price)}
                         </span>
                       </div>
                     </button>
@@ -480,7 +567,7 @@ const Booking = () => {
                             {selectedServiceData.name}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Duration: {selectedServiceData.duration}
+                            Duration: {formatDuration(selectedServiceData.duration_minutes)}
                           </p>
                         </div>
 
@@ -505,7 +592,7 @@ const Booking = () => {
                             Estimated Price
                           </p>
                           <p className="text-xl font-bold text-foreground">
-                            {selectedServiceData.price}
+                            {formatPrice(selectedServiceData.base_price)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Final price may vary based on property size
