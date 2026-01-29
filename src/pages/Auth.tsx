@@ -14,12 +14,36 @@ const authSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+// Simple in-memory rate limiting for auth attempts
+const authAttempts = new Map<string, { count: number; resetTime: number }>();
+const MAX_AUTH_ATTEMPTS = 5;
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+const checkRateLimit = (email: string): { allowed: boolean; remainingAttempts: number; retryAfterMs?: number } => {
+  const now = Date.now();
+  const key = email.toLowerCase().trim();
+  const record = authAttempts.get(key);
+  
+  if (!record || now > record.resetTime) {
+    authAttempts.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, remainingAttempts: MAX_AUTH_ATTEMPTS - 1 };
+  }
+  
+  if (record.count >= MAX_AUTH_ATTEMPTS) {
+    return { allowed: false, remainingAttempts: 0, retryAfterMs: record.resetTime - now };
+  }
+  
+  record.count++;
+  return { allowed: true, remainingAttempts: MAX_AUTH_ATTEMPTS - record.count };
+};
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -61,6 +85,20 @@ const Auth = () => {
     e.preventDefault();
     
     if (!validateForm()) return;
+    
+    // Check rate limit before proceeding
+    const rateCheck = checkRateLimit(email);
+    if (!rateCheck.allowed) {
+      const retryMinutes = Math.ceil((rateCheck.retryAfterMs || 0) / 60000);
+      setRateLimitError(`Too many login attempts. Please try again in ${retryMinutes} minute${retryMinutes !== 1 ? 's' : ''}.`);
+      toast({
+        title: "Rate limit exceeded",
+        description: `Please wait ${retryMinutes} minute${retryMinutes !== 1 ? 's' : ''} before trying again.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setRateLimitError(null);
     
     setLoading(true);
 
@@ -150,6 +188,9 @@ const Auth = () => {
               </div>
               {errors.email && (
                 <p className="text-sm text-destructive">{errors.email}</p>
+              )}
+              {rateLimitError && (
+                <p className="text-sm text-destructive">{rateLimitError}</p>
               )}
             </div>
 
