@@ -181,14 +181,22 @@ const Booking = () => {
         })
         .select("id")
         .single();
-
       if (customerError) throw customerError;
 
-      // Convert time string to 24h format for DB
-      const timeMatch = selectedTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
-      let hours = parseInt(timeMatch?.[1] || "0");
-      const minutes = timeMatch?.[2] || "00";
-      const period = timeMatch?.[3]?.toUpperCase();
+      // Convert time string to 24h format for DB with proper validation
+      const timeMatch = selectedTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (!timeMatch) {
+        throw new Error("Invalid time format selected");
+      }
+      
+      let hours = parseInt(timeMatch[1], 10);
+      const minutes = timeMatch[2];
+      const period = timeMatch[3].toUpperCase();
+      
+      // Validate hours and minutes are in valid ranges
+      if (hours < 1 || hours > 12 || parseInt(minutes, 10) < 0 || parseInt(minutes, 10) > 59) {
+        throw new Error("Invalid time value");
+      }
       
       if (period === "PM" && hours !== 12) hours += 12;
       if (period === "AM" && hours === 12) hours = 0;
